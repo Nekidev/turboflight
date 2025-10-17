@@ -1,6 +1,6 @@
 [package]
 name = "turboflight"
-description = "A simple single-flight implementation using scc and tokio."
+description = "A simple single-flight implementation for heavy concurrency."
 version = "1.0.1"
 edition = "2024"
 readme = "README.md"
