@@ -44,7 +44,7 @@
 //!             println!("Doing work...");
 //!             time::sleep(Duration::from_secs(1)).await;
 //!             println!("Work done!");
-//! 
+//!
 //!             100
 //!         }).await
 //!     }));
@@ -52,14 +52,14 @@
 //! }
 //!
 //! let results = futures::future::join_all(tasks).await;
-//! 
+//!
 //! assert!(results.into_iter().all(|res| res.unwrap() == 100));
 //! # }
 //! ```
-//! 
+//!
 //! The example above spawns 10 tasks that all attempt to execute the same function concurrently.
 //! It'll only be ran once. The output will be similar to:
-//! 
+//!
 //! ```txt
 //! Task spawned
 //! Task spawned
@@ -74,29 +74,29 @@
 //! Doing work...
 //! Work done!
 //! ```
-//! 
+//!
 //! Note that the `Doing work...` are at the end in this example because of race conditions in the
 //! spawner. Check `examples/simple.rs` to try it out yourself.
-//! 
+//!
 //! # Cloning
-//! 
+//!
 //! The [`SingleFlight`] struct is cheaply clonable because its inner state is wrapped in an
 //! [`Arc`]. This allows you to easily share a single instance of [`SingleFlight`] across multiple
 //! tasks or threads without incurring the overhead of deep copies.
-//! 
+//!
 //! # Concurrency
-//! 
+//!
 //! The implementation leverages [`scc::HashIndex`] for efficient concurrent access to the inner
 //! state. [`HashIndex`] is a lock-free, concurrent hash map that allows multiple threads to read
 //! without blocking each other, making it well-suited for high-concurrency scenarios.
-//! 
+//!
 //! [`SingleFlight`] performs the best compared to other single-flight implementations when
 //! concurrency is high. When concurrency is low, you may find other implementations (like
 //! [`singleflight-async`]) to be faster.
-//! 
+//!
 //! TL;DR: This implementation is not the fastest when concurrency is low, but the performance does
 //! not drop when concurrency is high.
-//! 
+//!
 //! [`singleflight-async`]: https://crates.io/crates/singleflight-async
 
 use std::sync::Arc;
@@ -105,7 +105,7 @@ use scc::HashIndex;
 use tokio::sync::broadcast::{self, Sender};
 
 /// A single-flight implementation using [`scc::HashIndex`] and [`tokio::sync::broadcast`].
-/// 
+///
 /// See the [module-level documentation](crate) for more details.
 #[derive(Clone, Default)]
 pub struct SingleFlight<K, V> {
@@ -124,14 +124,14 @@ where
     }
 
     /// Executes the provided asynchronous function `fut` associated with the given `key`.
-    /// 
+    ///
     /// If another execution with the same key is already in progress, this method will wait
     /// for that execution to complete and return its result instead of executing `fut` again.
-    /// 
+    ///
     /// Arguments:
     /// * `key` - A key that uniquely identifies the function being executed.
     /// * `fut` - An asynchronous function that returns a value of type `V`.
-    /// 
+    ///
     /// Returns:
     /// `V` - The result of the function execution.
     pub async fn work<Fut>(&self, key: K, fut: Fut) -> V
@@ -168,6 +168,19 @@ where
 
             return value;
         }
+    }
+
+    /// Checks if there is an ongoing execution for the given `key`.
+    ///
+    /// Returns `true` if there is an ongoing execution, otherwise returns `false`.
+    ///
+    /// Arguments:
+    /// * `key` - A key that uniquely identifies the function being executed.
+    ///
+    /// Returns:
+    /// `bool` - `true` if there is an ongoing execution for the given `key`, otherwise `false`.
+    pub fn is_running(&self, key: &K) -> bool {
+        self.inner.contains(key)
     }
 }
 
