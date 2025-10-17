@@ -87,15 +87,15 @@
 //! # Concurrency
 //! 
 //! The implementation leverages [`scc::HashIndex`] for efficient concurrent access to the inner
-//! state. [`HashIndex`] is a lock-free, concurrent hash map that allows multiple threads to read and
-//! write without blocking each other, making it well-suited for high-concurrency scenarios.
+//! state. [`HashIndex`] is a lock-free, concurrent hash map that allows multiple threads to read
+//! without blocking each other, making it well-suited for high-concurrency scenarios.
 //! 
 //! [`SingleFlight`] performs the best compared to other single-flight implementations when
-//! contention is high. When contention is low, you may find other implementations
-//! (like [`singleflight-async`]) to be faster.
+//! concurrency is high. When concurrency is low, you may find other implementations (like
+//! [`singleflight-async`]) to be faster.
 //! 
-//! TL;DR: This implementation is not the fastest when contention is low, but the performance does
-//! not drop when contention is high.
+//! TL;DR: This implementation is not the fastest when concurrency is low, but the performance does
+//! not drop when concurrency is high.
 //! 
 //! [`singleflight-async`]: https://crates.io/crates/singleflight-async
 
