@@ -17,7 +17,7 @@ async fn main() {
     for _ in 0..10 {
         let group = group.clone();  // The inner state of the group is an Arc so it's cheaply clonable.
         tasks.push(tokio::spawn(async move {
-            group.work(1, || async {
+            group.work(1, async {
                 println!("Doing work...");
                 time::sleep(Duration::from_secs(1)).await;
                 println!("Work done!");
