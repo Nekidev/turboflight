@@ -1,4 +1,4 @@
-//! A single-flight implementation using [`scc::HashIndex`] and [`tokio::sync::broadcast`].
+//! A simple single-flight implementation for heavy concurrency.
 //!
 //! Single flight prevents duplicate work by ensuring that only one execution of a function
 //! identified by a key is in-flight at any given time. If multiple tasks attempt to execute the

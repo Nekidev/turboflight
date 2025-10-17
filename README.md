@@ -1,6 +1,6 @@
 # turboflight
 
-A simple single-flight implementation for tokio.
+A simple single-flight implementation for heavy concurrency.
 
 ## Simple Usage
 
