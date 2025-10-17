@@ -40,7 +40,7 @@
 //! for _ in 0..10 {
 //!     let group = group.clone();  // The inner state of the group is an Arc so it's cheaply clonable.
 //!     tasks.push(tokio::spawn(async move {
-//!         group.work(1, || async {
+//!         group.work(1, async {
 //!             println!("Doing work...");
 //!             time::sleep(Duration::from_secs(1)).await;
 //!             println!("Work done!");
@@ -123,20 +123,19 @@ where
         }
     }
 
-    /// Executes the provided asynchronous function `func` associated with the given `key`.
+    /// Executes the provided asynchronous function `fut` associated with the given `key`.
     /// 
     /// If another execution with the same key is already in progress, this method will wait
-    /// for that execution to complete and return its result instead of executing `func` again.
+    /// for that execution to complete and return its result instead of executing `fut` again.
     /// 
     /// Arguments:
     /// * `key` - A key that uniquely identifies the function being executed.
-    /// * `func` - An asynchronous function that returns a value of type `V`.
+    /// * `fut` - An asynchronous function that returns a value of type `V`.
     /// 
     /// Returns:
     /// `V` - The result of the function execution.
-    pub async fn work<F, Fut>(&self, key: K, func: F) -> V
+    pub async fn work<Fut>(&self, key: K, fut: Fut) -> V
     where
-        F: FnOnce() -> Fut,
         Fut: Future<Output = V>,
     {
         loop {
@@ -159,7 +158,7 @@ where
                 continue;
             }
 
-            let value = func().await;
+            let value = fut.await;
 
             self.inner.remove_async(&key).await;
 
@@ -185,7 +184,7 @@ mod tests {
     async fn test_single_flight() {
         let group = SingleFlight::new();
 
-        let result = group.work(1, || async { 42 }).await;
+        let result = group.work(1, async { 42 }).await;
         assert_eq!(result, 42);
 
         let counter = Arc::new(AtomicUsize::new(0));
@@ -195,7 +194,7 @@ mod tests {
             let counter = counter.clone();
             tokio::spawn(async move {
                 group
-                    .work(2, || async {
+                    .work(2, async {
                         counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         tokio::time::sleep(Duration::from_secs(10)).await;
                         42
