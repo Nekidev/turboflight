@@ -99,17 +99,20 @@
 //!
 //! [`singleflight-async`]: https://crates.io/crates/singleflight-async
 
-use std::sync::Arc;
+use std::{hash::Hash, sync::Arc};
 
-use scc::HashIndex;
+use hypercounter::map::TurboMap;
 use tokio::sync::broadcast::{self, Sender};
 
-/// A single-flight implementation using [`scc::HashIndex`] and [`tokio::sync::broadcast`].
+/// A single-flight implementation using [`TurboMap`] and [`tokio::sync::broadcast`].
 ///
 /// See the [module-level documentation](crate) for more details.
 #[derive(Clone, Default)]
-pub struct SingleFlight<K, V> {
-    inner: Arc<HashIndex<K, Sender<V>>>,
+pub struct SingleFlight<K, V>
+where
+    K: Hash + Eq,
+{
+    inner: Arc<TurboMap<K, Sender<V>>>,
 }
 
 impl<K, V> SingleFlight<K, V>
@@ -119,7 +122,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(HashIndex::new()),
+            inner: Arc::new(TurboMap::new()),
         }
     }
 
@@ -139,8 +142,8 @@ where
         Fut: Future<Output = V>,
     {
         loop {
-            if let Some(tx) = self.inner.peek_with(&key, |_k, v| v.clone()) {
-                if let Ok(value) = tx.subscribe().recv().await {
+            if let Some(tx) = self.inner.get(&key) {
+                if let Ok(value) = tx.1.subscribe().recv().await {
                     return value;
                 } else {
                     // Continue to spawn a new execution if the sender has been closed.
@@ -151,8 +154,7 @@ where
 
             if self
                 .inner
-                .insert_async(key.clone(), tx.clone())
-                .await
+                .insert(Arc::new((key.clone(), tx.clone())))
                 .is_err()
             {
                 continue;
@@ -160,7 +162,7 @@ where
 
             let value = fut.await;
 
-            self.inner.remove_async(&key).await;
+            self.inner.remove(&key);
 
             // Errors are only returned if there are no active receivers, which can be safely
             // ignored.
@@ -168,19 +170,6 @@ where
 
             return value;
         }
-    }
-
-    /// Checks if there is an ongoing execution for the given `key`.
-    ///
-    /// Returns `true` if there is an ongoing execution, otherwise returns `false`.
-    ///
-    /// Arguments:
-    /// * `key` - A key that uniquely identifies the function being executed.
-    ///
-    /// Returns:
-    /// `bool` - `true` if there is an ongoing execution for the given `key`, otherwise `false`.
-    pub fn is_running(&self, key: &K) -> bool {
-        self.inner.contains(key)
     }
 }
 

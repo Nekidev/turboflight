@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "arc-swap"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
+
+[[package]]
 name = "futures"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -92,6 +98,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hypercounter"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06b607a9ea4cf65a288d802d29976165d2328857a0a428946f6a68520319764b"
+dependencies = [
+ "arc-swap",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -126,28 +141,6 @@ checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
 dependencies = [
  "proc-macro2",
 ]
-
-[[package]]
-name = "saa"
-version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c2d7c5178d64caf296b798b8e96d8dcc4b6427bab402eeae2f65f4d76a08a4c"
-
-[[package]]
-name = "scc"
-version = "3.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd0b9e1890c5b17833a779c68a974f04170dfa36e3789395d17845418cc779ac"
-dependencies = [
- "saa",
- "sdd",
-]
-
-[[package]]
-name = "sdd"
-version = "4.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "800d0e162c4e1e42c84eba734a3bbab72d8f869e8d6eec5f74947829a70ad91e"
 
 [[package]]
 name = "slab"
@@ -189,10 +182,10 @@ dependencies = [
 
 [[package]]
 name = "turboflight"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "futures",
- "scc",
+ "hypercounter",
  "tokio",
 ]
 
