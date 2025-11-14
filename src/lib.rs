@@ -86,33 +86,29 @@
 //!
 //! # Concurrency
 //!
-//! The implementation leverages [`scc::HashIndex`] for efficient concurrent access to the inner
-//! state. [`HashIndex`] is a lock-free, concurrent hash map that allows multiple threads to read
+//! The implementation leverages [`papaya::HashMap`] for efficient concurrent access to the inner
+//! state. [`HashMap`] is a lock-free, concurrent hash map that allows multiple threads to read
 //! without blocking each other, making it well-suited for high-concurrency scenarios.
 //!
 //! [`SingleFlight`] performs the best compared to other single-flight implementations when
 //! concurrency is high. When concurrency is low, you may find other implementations (like
 //! [`singleflight-async`]) to be faster.
 //!
-//! TL;DR: This implementation is not the fastest when concurrency is low, but the performance does
-//! not drop when concurrency is high.
+//! TL;DR: This implementation may not be the fastest when concurrency is low.
 //!
 //! [`singleflight-async`]: https://crates.io/crates/singleflight-async
 
-use std::{hash::Hash, sync::Arc};
+use std::sync::Arc;
 
-use hypercounter::map::TurboMap;
+use papaya::HashMap;
 use tokio::sync::broadcast::{self, Sender};
 
-/// A single-flight implementation using [`TurboMap`] and [`tokio::sync::broadcast`].
+/// A single-flight implementation using [`papaya::HashMap`] and [`tokio::sync::broadcast`].
 ///
 /// See the [module-level documentation](crate) for more details.
 #[derive(Clone, Default)]
-pub struct SingleFlight<K, V>
-where
-    K: Hash + Eq,
-{
-    inner: Arc<TurboMap<K, Sender<V>>>,
+pub struct SingleFlight<K, V> {
+    inner: Arc<HashMap<K, Sender<V>>>,
 }
 
 impl<K, V> SingleFlight<K, V>
@@ -122,7 +118,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(TurboMap::new()),
+            inner: Arc::new(HashMap::new()),
         }
     }
 
@@ -141,9 +137,12 @@ where
     where
         Fut: Future<Output = V>,
     {
+        let map = self.inner.pin_owned();
+
         loop {
-            if let Some(tx) = self.inner.get(&key) {
-                if let Ok(value) = tx.1.subscribe().recv().await {
+
+            if let Some(tx) = map.get(&key) {
+                if let Ok(value) = tx.subscribe().recv().await {
                     return value;
                 } else {
                     // Continue to spawn a new execution if the sender has been closed.
@@ -152,17 +151,13 @@ where
 
             let (tx, _rx) = broadcast::channel::<V>(1);
 
-            if self
-                .inner
-                .insert(Arc::new((key.clone(), tx.clone())))
-                .is_err()
-            {
+            if map.try_insert(key.clone(), tx.clone()).is_err() {
                 continue;
             }
 
             let value = fut.await;
 
-            self.inner.remove(&key);
+            map.remove(&key);
 
             // Errors are only returned if there are no active receivers, which can be safely
             // ignored.
@@ -170,6 +165,21 @@ where
 
             return value;
         }
+    }
+
+    /// Checks if there is an ongoing execution for the given `key`.
+    ///
+    /// Returns `true` if there is an ongoing execution, otherwise returns `false`.
+    ///
+    /// Arguments:
+    /// * `key` - A key that uniquely identifies the function being executed.
+    ///
+    /// Returns:
+    /// `bool` - `true` if there is an ongoing execution for the given `key`, otherwise `false`.
+    pub fn is_running(&self, key: &K) -> bool {
+        let map = self.inner.pin();
+
+        map.contains_key(key)
     }
 }
 
