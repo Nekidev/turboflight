@@ -101,14 +101,14 @@
 use std::sync::Arc;
 
 use papaya::HashMap;
-use tokio::sync::broadcast::{self, Sender};
+use tokio::sync::watch::{self, Sender};
 
-/// A single-flight implementation using [`papaya::HashMap`] and [`tokio::sync::broadcast`].
+/// A single-flight implementation using [`papaya::HashMap`] and [`tokio::sync::watch`].
 ///
 /// See the [module-level documentation](crate) for more details.
 #[derive(Clone, Default)]
 pub struct SingleFlight<K, V> {
-    inner: Arc<HashMap<K, Sender<V>>>,
+    inner: Arc<HashMap<K, Sender<Option<V>>>>,
 }
 
 impl<K, V> SingleFlight<K, V>
@@ -140,16 +140,19 @@ where
         let map = self.inner.pin_owned();
 
         loop {
-
             if let Some(tx) = map.get(&key) {
-                if let Ok(value) = tx.subscribe().recv().await {
+                let mut rx = tx.subscribe();
+
+                if let Ok(value) = rx.wait_for(|v| v.is_some()).await {
+                    let value = value.clone().unwrap();
+                    
                     return value;
                 } else {
                     // Continue to spawn a new execution if the sender has been closed.
                 }
             }
 
-            let (tx, _rx) = broadcast::channel::<V>(1);
+            let (tx, _rx) = watch::channel::<Option<V>>(None);
 
             if map.try_insert(key.clone(), tx.clone()).is_err() {
                 continue;
@@ -161,7 +164,7 @@ where
 
             // Errors are only returned if there are no active receivers, which can be safely
             // ignored.
-            tx.send(value.clone()).ok();
+            tx.send(Some(value.clone())).ok();
 
             return value;
         }
